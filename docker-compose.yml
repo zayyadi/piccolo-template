@@ -1,0 +1,55 @@
+version: "3.8"
+
+volumes:
+  psql_data:
+  pgadmin_data:
+  pdm_data:
+
+services:
+  web:
+    build:
+      dockerfile: .build/Dockerfile
+      context: .
+    restart: unless-stopped
+    image: fastapi-piccolo:dev
+    volumes:
+      - ./:/opt/app
+      - pdm_data:/root/.local/share/pdm/venvs/app-jNE7dXAC-env:z
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    command: bash -c 'while !</dev/tcp/db/5432; do sleep 1; done; python main.py'
+
+  db:
+    restart: unless-stopped
+    image: postgres:14-alpine
+    env_file:
+      - ./.env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    command:
+      postgres -c listen_addresses='*'
+
+    volumes:
+      - psql_data:/var/lib/postgresql/data:z
+    ports:
+      - "5433:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+
+
+    depends_on:
+      - db
+
